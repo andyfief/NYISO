@@ -1,0 +1,21 @@
+Weather:
+    Temperature, Feels Like
+    Humidity
+    Wind chill or speed
+    cloud cover
+    rain/snow
+    snow accumulation or in_snow_onGround
+    air quality
+
+Economic:
+    Stock market open days
+    Unemployment Rates
+    Strikes, labor shutdowns
+    Public transit ridership (MTA daily stats - chatGPT)
+    Gas prices
+
+
+Check for gaps in load polling. Fill these in with smaller predictions if there arent holdays present and stuff
+    Linear interpolation for single missing hours
+    Pattern-based imputation (using similar days/hours)
+
