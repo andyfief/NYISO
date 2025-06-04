@@ -4,14 +4,15 @@ from datetime import datetime
 import holidays
 import calendar
 
-def clean_null_load_values(csv_path):
-    """Removes 3 null load values, converts timestamp and timezone to UTC, drops both old ones, saves csv."""
-    df = pd.read_csv(csv_path)
-
+def clean_null_load_values(df):
+    """Removes 3 null load values, converts timestamp and timezone to UTC, drops both old ones"""
+    # Make a copy to avoid SettingWithCopyWarning
+    df = df.copy()
+    
     # Dropped 3 null values for load
     null_load_rows = df[df['Integrated Load'].isnull()]
     print(null_load_rows)
-    df = df.dropna(subset=['Integrated Load'])
+    df = df.dropna(subset=['Integrated Load']).copy()  # Add .copy() to ensure we have a proper dataframe
 
     unique_timezones = df['Time Zone'].unique()
     print(unique_timezones)
@@ -47,24 +48,22 @@ def clean_null_load_values(csv_path):
     df = df.drop('Time Zone', axis=1)
     df = df.drop('Time Stamp', axis=1)
 
-    df.to_csv('nyiso_data_utc.csv', index=False)
     return df
 
-def rename_columns_and_drop_ptid(csv_path):
+def rename_columns_and_drop_ptid(df):
     """Renames some columns and drops PTID"""
-    df = pd.read_csv(csv_path)
-
+    df = df.copy()
+    
     df = df.drop('PTID', axis=1)
     df = df.rename(columns={'Integrated Load': 'Load'})
     df = df.rename(columns={'UTC_Timestamp': 'Timestamp'})
 
-    df.to_csv('nyiso_data_utc.csv', index=False)
     return df
 
-def add_time_features(csv_path):
+def add_time_features(df):
     """Adds time features: Day, Hour, Month, Season, IsWeekend. Removes Timestamp."""
-    df = pd.read_csv(csv_path)
-
+    df = df.copy()
+    
     df['Timestamp'] = pd.to_datetime(df['Timestamp'])
 
     # Create separate date and hour columns
@@ -82,7 +81,6 @@ def add_time_features(csv_path):
         9: 'Fall', 10: 'Fall', 11: 'Fall', 12: 'Winter'
     })
 
-    df.to_csv('add_time_features.csv', index=False)
     return df
 
 def calculate_thanksgiving(year):
@@ -105,7 +103,7 @@ def calculate_thanksgiving(year):
     
     return f"{year}-11-{thanksgiving_day:02d}"
 
-def add_holiday_features(csv_path):
+def add_holiday_features(df):
     """Add holiday names, isHoliday, isBeforeHoliday, isAfterHoliday"""
     # add holiday names, isHoliday, isBeforeHoliday, isAfterHoliday --- needs work
     """
@@ -186,8 +184,8 @@ def add_holiday_features(csv_path):
     Covid lockdowns, by level/restriction
     """
     
-    df = pd.read_csv(csv_path)
-
+    df = df.copy()
+    
     df['Date'] = pd.to_datetime(df['Date'])
     start_year = df['Date'].min().year
     end_year = df['Date'].max().year
@@ -259,35 +257,52 @@ def add_holiday_features(csv_path):
     for date in cybermonday_dates:
         df.loc[df['Date'] == date, 'cyberMonday'] = 1
 
-    print(thanksgiving_dates, blackfriday_dates, cybermonday_dates)
-
     easter_dates = ['2005-03-27', '2006-04-16', '2007-04-08', '2008-03-23', 
                     '2009-04-12', '2010-04-04', '2011-04-24', '2012-04-08', 
                     '2013-03-31', '2014-04-20', '2015-04-05', '2016-03-27', 
                     '2017-04-16', '2018-04-01', '2019-04-21', '2020-04-12', 
                     '2021-04-04', '2022-04-17', '2023-04-09', '2024-03-31', 
                     '2025-04-20']
+    
     easter_dates = pd.to_datetime(easter_dates)
     df['easter'] = 0
     for date in easter_dates:
         df.loc[df['Date'] == date, 'easter'] = 1
 
-    # Save to CSV
-    df.to_csv('with_holidays.csv', index=False)
     return df
 
-# Main execution - uncomment the functions you want to run
-if __name__ == "__main__":
+def save_to_csv(df, filename):
+    """Save dataframe to CSV file"""
+    df.to_csv(filename, index=False)
+    print(f"Data saved to {filename}")
+    return df
+
+def main():
+    csv_path = "nyc_load_aggregated_raw.csv"
+
+    print("Loading original csv file...")
+    df = pd.read_csv(csv_path)
+
     # Step 1: Clean null values and convert to UTC
-    # clean_null_load_values('./nyc_load_aggregated_raw.csv')
+    print("Cleaning Nulls and Converting to UTC...")
+    df = clean_null_load_values(df)
     
     # Step 2: Rename columns and drop PTID
-    # rename_columns_and_drop_ptid('./nyiso_data_utc.csv')
+    print("Renaming some columns...")
+    df = rename_columns_and_drop_ptid(df)
     
     # Step 3: Add time features
-    # add_time_features('./nyiso_data_utc.csv')
+    print("Adding time features...")
+    df = add_time_features(df)
     
     # Step 4: Add holiday features
-    # add_holiday_features('./add_time_features.csv')
-    
-    pass
+    print("Adding holiday features...")
+    df = add_holiday_features(df)
+
+    print("Saving to new csv...")
+    save_to_csv(df, "final_processed_data.csv") 
+
+    print("bye")
+
+if __name__ == "__main__":
+    main()
