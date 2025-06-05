@@ -66,18 +66,6 @@ def add_time_features(df):
 
     return df
 
-def rollingAverage(df, target='Load', window=3):
-    """
-    Adds a centered rolling average column for the target column.
-    window: number of frames on either side of the current row to include.
-    """
-    df = df.copy()
-
-    rolling_window = 2 * window + 1
-    df[f'{target}Rolling{window}'] = df[target].rolling(window=rolling_window, center=True, min_periods=1).mean()
-
-    return df
-
 def trailingRollingAverage(df, target='Load', window=3):
     """
     Adds a trailing (causal) rolling average column for the target column.
@@ -121,9 +109,41 @@ def numericalDate(df):
     df['DayOfYear'] = df['Timestamp'].dt.dayofyear
     df['DayOfWeek'] = df['Timestamp'].dt.weekday + 1  # Monday=1, Sunday=7
 
-    df = df.drop('Day', axis=1)
-    df = df.drop('Date', axis=1)
+    season_mapping = {'Winter': 1, 'Spring': 2, 'Summer': 3, 'Fall': 4}
+    df['seasonNum'] = df['Season'].map(season_mapping)
 
+    df = df.drop('Season', axis = 1)
+    df = df.drop('Day', axis=1)
+    #df = df.drop('Date', axis=1)
+
+    return df
+
+def add_temperature(df, weathercsv):
+    """Merge temperature from weather data into the main DataFrame using UTC timestamps."""
+    df = df.copy()
+
+    # Load weather data
+    weather_df = pd.read_csv(weathercsv)
+
+    # Ensure datetime format
+    weather_df['time'] = pd.to_datetime(weather_df['time'], utc=True)
+    df['Timestamp'] = pd.to_datetime(df['Timestamp'], utc=True)
+
+    # Rename to align with main DataFrame
+    weather_df = weather_df.rename(columns={'time': 'Timestamp', 'temp': 'Temperature'})
+
+    # Merge on exact timestamp
+    df = pd.merge(df, weather_df[['Timestamp', 'Temperature']], on='Timestamp', how='left')
+
+    return df
+
+def hotColdThreshold(df):
+    df = df.copy()
+    df['hotFlag'] = 0
+    df['coldFlag'] = 0
+    #Found using grid search
+    df.loc[df['Temperature'] > 20, 'hotFlag'] = 1
+    df.loc[df['Temperature'] < 9, 'coldFlag'] = 1
     return df
 
 def save_to_csv(df, filename):
@@ -131,7 +151,6 @@ def save_to_csv(df, filename):
     df.to_csv(filename, index=False)
     print(f"Data saved to {filename}")
     return df
-
 
 def main():
     csv_path = "nyc_load_aggregated_raw.csv"
@@ -146,17 +165,23 @@ def main():
     print("Converting to UTC...")
     df = convert_to_utc(df)
 
+    print("Adding temp from weather csv...")
+    df = add_temperature(df, 'weatherDF.csv')
+
+    print("Adding weather threshold at 20, 9C")
+    df = hotColdThreshold(df)
+
     print("Removing timestamp and converting to Hour, Day")
     df = hourDay(df)
 
     print('Adding time features...')
     df = add_time_features(df)
 
-    print("Adding centered rolling average....")
-    df = rollingAverage(df)
-
-    print("Adding trailing rolling average...")
-    df = trailingRollingAverage(df)
+    #Data leakage
+    #print("Adding centered rolling average....")
+    #df = rollingAverage(df)
+    #print("Adding trailing rolling average...")
+    #df = trailingRollingAverage(df)
 
     print("Adding 1 day lag...")
     df = lag_average(df, '1DayLag', 1)
@@ -170,6 +195,5 @@ def main():
     print("Saving...")
     save_to_csv(df, 'final.csv')
 
-    
 if __name__ == "__main__":
     main()
