@@ -18,26 +18,38 @@ def barPlot(xCategories, yVar, xLabel, yLabel):
 
 def checkRelevance(df, column, Y, type):
     match type:
-        case "categoryAverage":
-            df['averaged'] = averageColumn(df[str(column)])
-            category_avgs = df.groupby(str(column))[Y.name].mean()
-            barPlot(category_avgs.index, category_avgs.values, str(column), Y.name)
 
+        #barplot of the average in each unique value of column
+        case "categoryAverage":
+            category_avgs = df.groupby(str(column))[str(Y)].mean()
+            barPlot(category_avgs.index, category_avgs.values, str(column), str(Y))
+
+        #Number of 1s, 0s in a boolean column
         case "oneHot":
             df['Yes'] = df[str(column)] == 1
             df['No'] = df[str(column)] == 0
-            barPlot(['Yes', 'No'], [df['Yes'].sum(), df['No'].sum()], str(column), "Count")
+            print(f'Number of Yes: {df['Yes'].sum()}')
+            print(f'Number of No: {df['No'].sum()}')
 
+        #Check the averages of 0 and 1 in a boolean column
+        case "oneHotAvg":
+            yes_mask = df[str(column)] == 1
+            no_mask = df[str(column)] == 0
+
+            print(f"Yes Mean: {df[yes_mask][str(Y)].mean()}")
+            print(f"No Mean: {df[no_mask][str(Y)].mean()}")
+
+        # plot X compared to Y
         case "scatterPlot":
             scatterPlot(df[str(column)], Y, str(column), Y.name)
 
 def main():
     df = pd.read_csv('./data/final_processed_data.csv')
     df_sample = df.sample(frac=0.05, random_state=42)
-
-    checkRelevance(df_sample, 'Hour', df_sample['Load'], 'categoryAverage')
-    checkRelevance(df_sample, 'christmasDay', df_sample['Load'], 'oneHot')
-    checkRelevance(df_sample, 'Hour', df_sample['Load'], 'scatterPlot')
-
+    
+    print((df['christmasDay'] == 1).sum())
+    checkRelevance(df_sample, 'Hour', 'Load', 'oneHotAvg')
+    checkRelevance(df_sample, 'Day', 'Load', 'categoryAverage')
+    
 if __name__ == "__main__":
     main()
