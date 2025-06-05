@@ -66,19 +66,24 @@ def add_time_features(df):
 
     return df
 
-def trailingRollingAverage(df, target='Load', window=3):
+def rollingAverages(df, target='Load'):
     """
     Adds a trailing (causal) rolling average column for the target column.
     window: number of past frames to include (does not peek into the future).
     """
     df = df.copy()
 
-    df[f'{target}Trailing{window}'] = df[target].rolling(window=window, min_periods=1).mean()
+    df[f'{target}Trailing{1}'] = df[target].rolling(window=1, min_periods=1).mean()
+    df[f'{target}Trailing{2}'] = df[target].rolling(window=2, min_periods=2).mean()
+    df[f'{target}Trailing{3}'] = df[target].rolling(window=3, min_periods=1).mean()
+    df[f'{target}Trailing{7}'] = df[target].rolling(window=7, min_periods=1).mean()
+
+    df[f'{target}Centered{3}'] = df[target].rolling(window=3, center=True, min_periods=1).mean()
+    df[f'{target}Centered{7}'] = df[target].rolling(window=7, center=True, min_periods=1).mean()
 
     return df
 
-
-def lag_average(df, newColumn, days, target='Load', ):
+def lag_average(df, newColumn, days, target='Load'):
     """
     Adds a new column with the average of 'target' column N days ago.
     """
@@ -177,14 +182,12 @@ def main():
     print('Adding time features...')
     df = add_time_features(df)
 
-    #Data leakage
-    #print("Adding centered rolling average....")
-    #df = rollingAverage(df)
-    #print("Adding trailing rolling average...")
-    #df = trailingRollingAverage(df)
+    print("Adding rolling averages...")
+    df = rollingAverages(df)
 
     print("Adding 1 day lag...")
     df = lag_average(df, '1DayLag', 1)
+
 
     print("Using numerical DOTW, DOTY and Year....")
     df = numericalDate(df)
