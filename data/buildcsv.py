@@ -5,7 +5,7 @@ import calendar
 import csv
 
 def clean_null_load_values(df):
-    """Removes 3 null load values, converts timestamp and timezone to UTC, drops both old ones"""
+    """Removes 3 null load values, converts Time Stamp and timezone to UTC, drops both old ones"""
     # Make a copy to avoid SettingWithCopyWarning
     df = df.copy()
 
@@ -14,43 +14,42 @@ def clean_null_load_values(df):
     
     df = df.drop('PTID', axis=1)
     df = df.rename(columns={'Integrated Load': 'Load'})
-    df = df.rename(columns={'UTC_Timestamp': 'Timestamp'})
+    df = df.rename(columns={'UTC_Time Stamp': 'Time Stamp'})
 
     return df
 
 def convert_to_utc(df):
-    """Converts 'Time Stamp' and 'Time Zone' columns to UTC datetime and cleans up the DataFrame."""
     df = df.copy()
-
     eastern = pytz.timezone('US/Eastern')
 
     def convert(row):
-        dt = datetime.strptime(row['Time Stamp'], '%m/%d/%Y %H:%M:%S')
+        if isinstance(row['Time Stamp'], str):
+            dt = datetime.strptime(row['Time Stamp'], '%m/%d/%Y %H:%M:%S')
+        else:
+            dt = row['Time Stamp']  # already a datetime
+
         is_dst = row['Time Zone'] == 'EDT'
         localized = eastern.localize(dt, is_dst=is_dst)
         return localized.astimezone(pytz.UTC)
 
-    df['UTC_Timestamp'] = df.apply(convert, axis=1)
-    df['UTC_Timestamp'] = df['UTC_Timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
-
-    df = df.drop(columns=['Time Stamp', 'Time Zone'])
-
-    df = df.rename(columns={'UTC_Timestamp': 'Timestamp'})
-
+    df['Time Stamp'] = df.apply(convert, axis=1)  # keep datetime
+    
+    df = df.drop('Time Zone', axis=1)
+    #df = df.drop('Time Stamp', axis=1)
     return df
 
 def hourDay(df):
     df = df.copy()
 
-    df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+    df['Time Stamp'] = pd.to_datetime(df['Time Stamp'])
 
-    df['Date'] = df['Timestamp'].dt.date
-    df['Hour'] = df['Timestamp'].dt.hour
+    df['Date'] = df['Time Stamp'].dt.date
+    df['Hour'] = df['Time Stamp'].dt.hour
 
     return df
 
 def add_time_features(df):
-    """Adds time features: Day, Hour, Month, Season, IsWeekend. Removes Timestamp."""
+    """Adds time features: Day, Hour, Month, Season, IsWeekend"""
     df = df.copy()
 
     df['Day'] = pd.to_datetime(df['Date']).dt.day_name()
@@ -68,19 +67,33 @@ def add_time_features(df):
 
 def rollingAverages(df, target='Load'):
     """
-    Adds a trailing (causal) rolling average column for the target column.
-    window: number of past frames to include (does not peek into the future).
+    Adds day-based rolling average columns for the target column.
+    Uses actual calendar days, not row indexes.
     """
     df = df.copy()
-
+    
+    # Ensure Date column is datetime
+    df['Date'] = pd.to_datetime(df['Date'])
+    
+    # Keep the simple trailing averages (row-based) for immediate context
     df[f'{target}Trailing{1}'] = df[target].rolling(window=1, min_periods=1).mean()
-    df[f'{target}Trailing{2}'] = df[target].rolling(window=2, min_periods=2).mean()
     df[f'{target}Trailing{3}'] = df[target].rolling(window=3, min_periods=1).mean()
     df[f'{target}Trailing{7}'] = df[target].rolling(window=7, min_periods=1).mean()
-
-    df[f'{target}Centered{3}'] = df[target].rolling(window=3, center=True, min_periods=1).mean()
-    df[f'{target}Centered{7}'] = df[target].rolling(window=7, center=True, min_periods=1).mean()
-
+    
+    # Add day-based rolling averages
+    # First, get daily averages for the target
+    daily_avg = df.groupby('Date')[target].mean()
+    
+    # Create day-based rolling averages
+    daily_rolling_3 = daily_avg.rolling(window=3, min_periods=1).mean()
+    daily_rolling_7 = daily_avg.rolling(window=7, min_periods=1).mean()
+    daily_rolling_14 = daily_avg.rolling(window=14, min_periods=1).mean()
+    
+    # Map back to original dataframe
+    df[f'{target}DayRolling3'] = df['Date'].map(daily_rolling_3)
+    df[f'{target}DayRolling7'] = df['Date'].map(daily_rolling_7)
+    df[f'{target}DayRolling14'] = df['Date'].map(daily_rolling_14)
+    
     return df
 
 def lag_average(df, newColumn, days, target='Load'):
@@ -91,9 +104,6 @@ def lag_average(df, newColumn, days, target='Load'):
 
     # Ensure 'Date' column is datetime type
     df['Date'] = pd.to_datetime(df['Date'])
-
-    # Sort by date to make sure lag makes sense
-    df = df.sort_values('Date')
 
     # Group by Date and calculate daily mean for target (in case multiple rows per day)
     daily_avg = df.groupby('Date')[target].mean()
@@ -108,11 +118,11 @@ def lag_average(df, newColumn, days, target='Load'):
 
 def numericalDate(df):
     df = df.copy()
-    df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+    df['Time Stamp'] = pd.to_datetime(df['Time Stamp'])
 
-    df['Year'] = df['Timestamp'].dt.year
-    df['DayOfYear'] = df['Timestamp'].dt.dayofyear
-    df['DayOfWeek'] = df['Timestamp'].dt.weekday + 1  # Monday=1, Sunday=7
+    df['Year'] = df['Time Stamp'].dt.year
+    df['DayOfYear'] = df['Time Stamp'].dt.dayofyear
+    df['DayOfWeek'] = df['Time Stamp'].dt.weekday + 1  # Monday=1, Sunday=7
 
     season_mapping = {'Winter': 1, 'Spring': 2, 'Summer': 3, 'Fall': 4}
     df['seasonNum'] = df['Season'].map(season_mapping)
@@ -124,7 +134,7 @@ def numericalDate(df):
     return df
 
 def add_temperature(df, weathercsv):
-    """Merge temperature from weather data into the main DataFrame using UTC timestamps."""
+    """Merge temperature from weather data into the main DataFrame using UTC Time Stamps."""
     df = df.copy()
 
     # Load weather data
@@ -132,24 +142,73 @@ def add_temperature(df, weathercsv):
 
     # Ensure datetime format
     weather_df['time'] = pd.to_datetime(weather_df['time'], utc=True)
-    df['Timestamp'] = pd.to_datetime(df['Timestamp'], utc=True)
+    df['Time Stamp'] = pd.to_datetime(df['Time Stamp'], utc=True)
 
     # Rename to align with main DataFrame
-    weather_df = weather_df.rename(columns={'time': 'Timestamp', 'temp': 'Temperature'})
+    weather_df = weather_df.rename(columns={'time': 'Time Stamp', 'temp': 'Temperature'})
 
-    # Merge on exact timestamp
-    df = pd.merge(df, weather_df[['Timestamp', 'Temperature']], on='Timestamp', how='left')
+    # Merge on exact Time Stamp
+    df = pd.merge(df, weather_df[['Time Stamp', 'Temperature']], on='Time Stamp', how='left')
 
     return df
 
-def hotColdThreshold(df):
+def twelveHourTemp(df):
+    """
+    Create 12-hour average temperature feature for 9AM-9PM blocks.
+    Drops all rows before the first 9:00AM Time Stamp.
+    """
     df = df.copy()
-    df['hotFlag'] = 0
-    df['coldFlag'] = 0
-    #Found using grid search
-    df.loc[df['Temperature'] > 20, 'hotFlag'] = 1
-    df.loc[df['Temperature'] < 9, 'coldFlag'] = 1
+    
+    # Ensure we have the required columns
+    if 'Time Stamp' not in df.columns:
+        raise ValueError("Time Stamp column is required for twelveHourTemp function")
+    
+    # Ensure Time Stamp is datetime and in UTC
+    df['Time Stamp'] = pd.to_datetime(df['Time Stamp'], utc=True)
+    
+    # Extract hour and date for processing
+    df['TempHour'] = df['Time Stamp'].dt.hour
+    df['TempDate'] = df['Time Stamp'].dt.date
+    
+    # Find the first occurrence of 9AM and drop everything before it
+    first_9am_idx = None
+    for idx, row in df.iterrows():
+        if row['TempHour'] == 9:
+            first_9am_idx = idx
+            break
+    
+    if first_9am_idx is None:
+        raise ValueError("No 9AM Time Stamp found in data - cannot proceed")
+    
+    # Drop all rows before first 9AM
+    df = df.iloc[first_9am_idx:].reset_index(drop=True)
+    
+    # Recalculate TempHour and TempDate after dropping rows
+    df['TempHour'] = df['Time Stamp'].dt.hour
+    df['TempDate'] = df['Time Stamp'].dt.date
+    
+    # Group by date and calculate 9AM-9PM averages
+    daily_averages = {}
+    
+    for date in df['TempDate'].unique():
+        date_data = df[df['TempDate'] == date]
+        
+        # Filter for 9AM to 9PM (inclusive of 9PM = hour 21)
+        daytime_data = date_data[
+            (date_data['TempHour'] >= 9) & (date_data['TempHour'] <= 21)
+        ]
+        
+        if len(daytime_data) > 0:
+            daily_averages[date] = daytime_data['Temperature'].mean()
+    
+    # Assign daily averages to all rows for each date
+    df['averageTemp'] = df['TempDate'].map(daily_averages)
+    
+    # Clean up temporary columns
+    df = df.drop(columns=['TempHour', 'TempDate'])
+    
     return df
+    
 
 def save_to_csv(df, filename):
     """Save dataframe to CSV file"""
@@ -163,20 +222,26 @@ def main():
     print("Loading original csv file...")
     df = pd.read_csv(csv_path)
 
-    # Step 1: Clean null values and convert to UTC
-    print("Cleaning Nulls")
-    df = clean_null_load_values(df)
+    print(df.dtypes)
+
+    print("Ordering by Time Stamp...")
+    df['Time Stamp'] = pd.to_datetime(df['Time Stamp'], format='%m/%d/%Y %H:%M:%S')
+    df = df.sort_values('Time Stamp').reset_index(drop=True)
 
     print("Converting to UTC...")
     df = convert_to_utc(df)
 
+    # Step 1: Clean null values and convert to UTC
+    print("Cleaning Nulls")
+    df = clean_null_load_values(df)
+
     print("Adding temp from weather csv...")
     df = add_temperature(df, 'weatherDF.csv')
 
-    print("Adding weather threshold at 20, 9C")
-    df = hotColdThreshold(df)
+    print("Adding average temperature for every 12 hours...")
+    df = twelveHourTemp(df)
 
-    print("Removing timestamp and converting to Hour, Day")
+    print("Removing Time Stamp and converting to Hour, Day")
     df = hourDay(df)
 
     print('Adding time features...')
@@ -188,12 +253,11 @@ def main():
     print("Adding 1 day lag...")
     df = lag_average(df, '1DayLag', 1)
 
-
     print("Using numerical DOTW, DOTY and Year....")
     df = numericalDate(df)
 
-    print("Dropping Timestamp...")
-    df = df.drop('Timestamp', axis=1)
+    #print("Dropping Time Stamp...")
+    #df = df.drop('Time Stamp', axis=1)
 
     print("Saving...")
     save_to_csv(df, 'final.csv')
