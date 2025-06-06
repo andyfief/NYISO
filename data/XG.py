@@ -49,7 +49,7 @@ def main(test_date='2025-03-20'):
 
     # Test only on the last 7 days (cutoff_date to test_date inclusive)
     test_df = df[(df['Date'] >= cutoff_date) & (df['Date'] < test_date)]
-    drop_cols = ['LoadTrailing1', 'LoadTrailing3', 'LoadTrailing7', 'LoadDayRolling3', 'LoadDayRolling7', 'LoadDayRolling14']
+    drop_cols = ['LoadTrailing1', 'LoadTrailing3', 'LoadTrailing7', 'LoadDayRolling3', 'LoadDayRolling7', 'LoadDayRolling14', '1DayLag']
     
     test_df = test_df.drop(columns=drop_cols, errors='ignore')
 
