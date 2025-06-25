@@ -1,4 +1,5 @@
-import pandas as pd 
+import pandas as pd
+import joblib # saving the model, better for scikit-learn compatible models than pickle
 import xgboost as xgb  
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import matplotlib.pyplot as plt 
@@ -40,7 +41,7 @@ def train_model(train_df, feature_names, test_df):
     
     return model, X_test, y_test  # Added y_test to return
 
-def predict(model, test_df, X_test):
+def plotPrediction(model, test_df, X_test):
     predictions = model.predict(X_test)
     test_df['prediction'] = predictions
     
@@ -124,12 +125,15 @@ def main():
 
     exclude_cols = ['Load', 'Date', 'Time Stamp']
     feature_cols = [col for col in df.columns if col not in exclude_cols]
-
     print("Training model...")
     model, X_test, y_test = train_model(train, feature_cols, test)
 
+    print("Pickling...")
+    joblib.dump(model, 'xgboost_model.pkl')
+
     print("Predicting...")
-    predictions = predict(model, test, X_test)
+    print(X_test.dtypes)
+    predictions = plotPrediction(model, test, X_test)
     forecast_on_test(df, test, model, X_test)
     
     feature_importance(model)
