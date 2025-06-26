@@ -13,9 +13,6 @@ def feature_importance(model):
              columns=['importance'])
     print(f"Top 5 most important features:")
     print(fi.sort_values('importance', ascending=False).head())
-    fi.sort_values('importance').plot(kind='barh', title='Feature Importance')
-    plt.show()
-    print("Feature importance plot displayed.")
 
 def train_model(train_df, feature_names, test_df):
     """Train XGBoost model on training data"""
@@ -24,9 +21,9 @@ def train_model(train_df, feature_names, test_df):
         'booster': 'gbtree',      
         'n_estimators': 1000,
         'early_stopping_rounds': 50,
-        'objective': 'reg:linear',
-        'max_depth': 3,
-        'learning_rate': 0.01
+        'objective': 'reg:squarederror',
+        'max_depth': 10,
+        'learning_rate': 0.01,
     }
     
     X_train = train_df[feature_names]
@@ -44,13 +41,6 @@ def train_model(train_df, feature_names, test_df):
 def plotPrediction(model, test_df, X_test):
     predictions = model.predict(X_test)
     test_df['prediction'] = predictions
-    
-    # Fixed plotting logic
-    ax = test_df[['Load']].plot(figsize=(15, 5))
-    test_df['prediction'].plot(ax=ax, style='.')
-    plt.legend(['Truth Data', 'Predictions'])
-    ax.set_title('Raw Data and Prediction')
-    plt.show()
     
     return predictions
 
@@ -116,11 +106,22 @@ def split(df, testLength_days):
 
     return train, test
 
+def plot_xgboost_forecast_vs_actual(test_df, predictions):
+    plt.figure(figsize=(15, 5))
+    plt.plot(test_df.index, test_df['Load'], label='Actual Load')
+    plt.plot(test_df.index, predictions, label='Forecast', color='red')
+    plt.title("XGBoost: Forecast vs Actual (Last Week)")
+    plt.xlabel("Time")
+    plt.ylabel("Load")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
 def main():
     path = '../data/processed/df.csv'
     df = pd.read_csv(path)
 
-    testLength_days = 7
+    testLength_days = 14
     train, test = split(df, testLength_days)
 
     exclude_cols = ['Load', 'Date', 'Time Stamp']
@@ -141,5 +142,21 @@ def main():
     print("\nEvaluating forecast...")
     evaluate_forecast(predictions, y_test)
 
+    plot_xgboost_forecast_vs_actual(test, predictions)
+
 if __name__ == "__main__":
     main()
+
+
+"""
+xgb_params = {
+        'base_score': 0.5, 
+        'booster': 'gbtree',      
+        'n_estimators': 1000,
+        'early_stopping_rounds': 50,
+        'objective': 'reg:squarederror',
+        'max_depth': 10,
+        'learning_rate': 0.01,
+    }
+"""
+

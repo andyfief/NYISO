@@ -41,5 +41,5 @@ dayofmonth       int64
 weekofyear       int64
 seasonNum        int64
 Temperature    float64
-averageTemp    float64\
+averageTemp    float64
 """
