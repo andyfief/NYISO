@@ -42,6 +42,13 @@ def plotPrediction(model, test_df, X_test):
     predictions = model.predict(X_test)
     test_df['prediction'] = predictions
     
+    # Fixed plotting logic
+    ax = test_df[['Load']].plot(figsize=(15, 5))
+    test_df['prediction'].plot(ax=ax, style='.')
+    plt.legend(['Truth Data', 'Predictions'])
+    ax.set_title('Raw Data and Prediction')
+    plt.show()
+    
     return predictions
 
 def forecast_on_test(df, test, model, X_test):
@@ -121,7 +128,7 @@ def main():
     path = '../data/processed/df.csv'
     df = pd.read_csv(path)
 
-    testLength_days = 14
+    testLength_days = 7
     train, test = split(df, testLength_days)
 
     exclude_cols = ['Load', 'Date', 'Time Stamp']
