@@ -20,10 +20,10 @@ def train_model(train_df, feature_names, test_df):
         'base_score': 0.5, 
         'booster': 'gbtree',      
         'n_estimators': 1000,
-        'early_stopping_rounds': 50,
         'objective': 'reg:squarederror',
         'max_depth': 10,
         'learning_rate': 0.01,
+        'early_stopping_rounds': 50
     }
     
     X_train = train_df[feature_names]
@@ -38,7 +38,8 @@ def train_model(train_df, feature_names, test_df):
     
     return model, X_test, y_test  # Added y_test to return
 
-def plotPrediction(model, test_df, X_test):
+def getPrediction(model, test_df, X_test):
+    test_df = test_df.copy()
     predictions = model.predict(X_test)
     test_df['prediction'] = predictions
     
@@ -99,7 +100,6 @@ def evaluate_forecast(predictions, actuals):
     
     return rmse, mae, mape
 
-
 def split(df, testLength_days):
      # Create train/test split
     df['Date'] = pd.to_datetime(df['Date'])
@@ -124,32 +124,56 @@ def plot_xgboost_forecast_vs_actual(test_df, predictions):
     plt.tight_layout()
     plt.show()
 
-def main():
-    path = '../data/processed/df.csv'
-    df = pd.read_csv(path)
-
-    testLength_days = 7
-    train, test = split(df, testLength_days)
-
+def process_single_split(df, train, test):
     exclude_cols = ['Load', 'Date', 'Time Stamp']
     feature_cols = [col for col in df.columns if col not in exclude_cols]
     print("Training model...")
     model, X_test, y_test = train_model(train, feature_cols, test)
 
-    print("Pickling...")
+    return model, X_test, y_test
+
+def expanding_window(df):
+    splits = [7, 14, 30, 90, 365, 1095, 1825] # 1W, 2W, 1M, 3M, 1Y, 3Y, 5Y splits
+    squareErrors = []
+    for i in range(0, len(splits)):
+        train, test = split(df, splits[i])
+        model, X_test, y_test = process_single_split(df, train, test)
+        predictions = getPrediction(model, test, X_test)
+        rmse, mae, mape = evaluate_forecast(predictions, y_test)
+        squareErrors.append(rmse)
+    
+    averageRMSE = sum(squareErrors) / len(squareErrors)
+    return averageRMSE
+
+def getSevenDayModel(df):
+    sevenDayTrain, sevenDayTest = split(df, 7) # retrieves the model that uses all but seven days
+    model, X_test, y_test = process_single_split(df, sevenDayTrain, sevenDayTest)
+
+    return model, sevenDayTrain, sevenDayTest, X_test, y_test
+
+def main():
+    path = '../data/processed/df.csv'
+    df = pd.read_csv(path)
+
+    #averageRMSE = expanding_window(df)
+    #print(f"Average RMSE across models of expanding windows: {averageRMSE}")
+
+    print("Getting final model trained on all but 7 days...")
+    model, sevenDayTrain, sevenDayTest, X_test, y_test = getSevenDayModel(df)
+
+    print("Pickling 7 day model...")
     joblib.dump(model, 'xgboost_model.pkl')
 
     print("Predicting...")
-    print(X_test.dtypes)
-    predictions = plotPrediction(model, test, X_test)
-    forecast_on_test(df, test, model, X_test)
+    predictions = getPrediction(model, sevenDayTest, X_test)
+
+    print("Displaying forecasted area on all data...")
+    forecast_on_test(df, sevenDayTest, model, X_test)
     
     feature_importance(model)
-    
-    print("\nEvaluating forecast...")
-    evaluate_forecast(predictions, y_test)
 
-    plot_xgboost_forecast_vs_actual(test, predictions)
+    print("Plotting 1 Week forecast from 7 day model...")
+    plot_xgboost_forecast_vs_actual(sevenDayTest, predictions)
 
 if __name__ == "__main__":
     main()
