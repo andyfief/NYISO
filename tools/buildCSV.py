@@ -143,6 +143,29 @@ def create_time_features(df):
 
     return df
 
+def addLag(df):
+    df = df.copy()
+
+    # Step 1: Create lag reference dates
+    df['DateMinus1Day'] = df['Date'] - pd.Timedelta(days=1)
+    df['Date1WeekAgo'] = df['Date'] - pd.Timedelta(days=7)
+
+    # Step 2: Make a simple lookup table for Date -> Load
+    load_lookup = df[['Date', 'Load']].copy()
+
+    # Step 3: Merge Load_1DayAgo
+    df = df.merge(load_lookup.rename(columns={'Date': 'DateMinus1Day', 'Load': 'Load_1DayAgo'}),
+                  on='DateMinus1Day', how='left')
+
+    # Step 4: Merge Load_1WeekAgo
+    df = df.merge(load_lookup.rename(columns={'Date': 'Date1WeekAgo', 'Load': 'Load_1WeekAgo'}),
+                  on='Date1WeekAgo', how='left')
+
+    # Step 5: Drop the lag keys if desired
+    df.drop(columns=['DateMinus1Day', 'Date1WeekAgo'], inplace=True)
+
+    return df
+
 def save_to_csv(df, filename):
     df.to_csv(filename, index=True)  # Keep index since it's Time Stamp
     print(f"Data saved to {filename}")
@@ -153,14 +176,20 @@ def main():
     weather_file = "../data/raw/weatherDF.csv"
 
     df = pd.read_csv(csv_path)
-    
-    # Global preprocessing (pre-split) - keep Time Stamp as column initially
+    print("Cleaning Null Values...")
     df = clean_null_load_values(df)
+    print("Converting to UTC...")
     df = convert_to_utc(df)  # This needs Time Stamp as a column
+    print("Reindexing, Interpolating...")
     df = reindex_interpolate(df)  # This sets Time Stamp as index
+    print("Creating time features...")
     df = create_time_features(df)  # This needs Time Stamp as index
+    print("Adding temperature data...")
     df = add_temperature(df, weather_file)  # Modified to handle index properly
+    print("Adding trailing average of temperature...")
     df = twelveHourTemp(df)  # Modified to handle index properly
+    print("Adding lag...")
+    df = addLag(df)
 
     save_to_csv(df, '../data/processed/df.csv') # For comparing to actuals in XG. I could put everything below this in XG too
     
