@@ -145,18 +145,25 @@ def create_time_features(df):
 
 def addLag(df):
     df = df.copy()
-    # Step 1: Create a new column that is the timestamp from 1 day ago
+
+    # Step 1: Create lag reference dates
     df['DateMinus1Day'] = df['Date'] - pd.Timedelta(days=1)
+    df['Date1WeekAgo'] = df['Date'] - pd.Timedelta(days=7)
 
-    # Step 2: Prepare a DataFrame with just the Date and Load columns, renaming Load to Load_1DayAgo
-    load_lag = df[['Date', 'Load']].copy()
-    load_lag.columns = ['DateMinus1Day', 'Load_1DayAgo']
+    # Step 2: Make a simple lookup table for Date -> Load
+    load_lookup = df[['Date', 'Load']].copy()
 
-    # Step 3: Merge to bring in the Load from 1 day ago
-    df = df.merge(load_lag, on='DateMinus1Day', how='left')
+    # Step 3: Merge Load_1DayAgo
+    df = df.merge(load_lookup.rename(columns={'Date': 'DateMinus1Day', 'Load': 'Load_1DayAgo'}),
+                  on='DateMinus1Day', how='left')
 
-    # Step 4: Clean up if needed
-    df.drop(columns=['DateMinus1Day'], inplace=True)
+    # Step 4: Merge Load_1WeekAgo
+    df = df.merge(load_lookup.rename(columns={'Date': 'Date1WeekAgo', 'Load': 'Load_1WeekAgo'}),
+                  on='Date1WeekAgo', how='left')
+
+    # Step 5: Drop the lag keys if desired
+    df.drop(columns=['DateMinus1Day', 'Date1WeekAgo'], inplace=True)
+
     return df
 
 def save_to_csv(df, filename):
@@ -169,7 +176,6 @@ def main():
     weather_file = "../data/raw/weatherDF.csv"
 
     df = pd.read_csv(csv_path)
-    
     print("Cleaning Null Values...")
     df = clean_null_load_values(df)
     print("Converting to UTC...")
