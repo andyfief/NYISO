@@ -143,6 +143,22 @@ def create_time_features(df):
 
     return df
 
+def addLag(df):
+    df = df.copy()
+    # Step 1: Create a new column that is the timestamp from 1 day ago
+    df['DateMinus1Day'] = df['Date'] - pd.Timedelta(days=1)
+
+    # Step 2: Prepare a DataFrame with just the Date and Load columns, renaming Load to Load_1DayAgo
+    load_lag = df[['Date', 'Load']].copy()
+    load_lag.columns = ['DateMinus1Day', 'Load_1DayAgo']
+
+    # Step 3: Merge to bring in the Load from 1 day ago
+    df = df.merge(load_lag, on='DateMinus1Day', how='left')
+
+    # Step 4: Clean up if needed
+    df.drop(columns=['DateMinus1Day'], inplace=True)
+    return df
+
 def save_to_csv(df, filename):
     df.to_csv(filename, index=True)  # Keep index since it's Time Stamp
     print(f"Data saved to {filename}")
@@ -154,13 +170,20 @@ def main():
 
     df = pd.read_csv(csv_path)
     
-    # Global preprocessing (pre-split) - keep Time Stamp as column initially
+    print("Cleaning Null Values...")
     df = clean_null_load_values(df)
+    print("Converting to UTC...")
     df = convert_to_utc(df)  # This needs Time Stamp as a column
+    print("Reindexing, Interpolating...")
     df = reindex_interpolate(df)  # This sets Time Stamp as index
+    print("Creating time features...")
     df = create_time_features(df)  # This needs Time Stamp as index
+    print("Adding temperature data...")
     df = add_temperature(df, weather_file)  # Modified to handle index properly
+    print("Adding trailing average of temperature...")
     df = twelveHourTemp(df)  # Modified to handle index properly
+    print("Adding lag...")
+    df = addLag(df)
 
     save_to_csv(df, '../data/processed/df.csv') # For comparing to actuals in XG. I could put everything below this in XG too
     
