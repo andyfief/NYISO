@@ -11,11 +11,11 @@ def feature_importance(model):
     fi = pd.DataFrame(data=model.feature_importances_,
              index=model.feature_names_in_,
              columns=['importance'])
-    print(f"Top 5 most important features:")
-    print(fi.sort_values('importance', ascending=False).head())
+    print(f"Features, ranked:")
+    print(fi.sort_values('importance', ascending=False))
 
-def train_model(train_df, feature_names, test_df):
-    """Train XGBoost model on training data"""
+def train_model(train_df, feature_names, test_full, test_prediction):
+    """Train XGBoost model using buffer data for validation"""
     xgb_params = {
         'base_score': 0.5, 
         'booster': 'gbtree',      
@@ -28,37 +28,52 @@ def train_model(train_df, feature_names, test_df):
     
     X_train = train_df[feature_names]
     y_train = train_df['Load']
-    X_test = test_df[feature_names]
-    y_test = test_df['Load']  # Fixed: changed from 'load' to 'Load'
+    
+    # Use all testing data for validation during training
+    X_val = test_full[feature_names]
+    y_val = test_full['Load']
+    
+    # Prepare prediction window features
+    X_pred = test_prediction[feature_names]
+    y_pred = test_prediction['Load']
     
     model = xgb.XGBRegressor(**xgb_params)
     model.fit(X_train, y_train,
-            eval_set=[(X_train, y_train), (X_test, y_test)],
-            verbose=100)
+              eval_set=[(X_train, y_train), (X_val, y_val)],
+              verbose=100)
     
-    return model, X_test, y_test  # Added y_test to return
+    return model, X_pred, y_pred
 
-def getPrediction(model, test_df, X_test):
-    test_df = test_df.copy()
-    predictions = model.predict(X_test)
-    test_df['prediction'] = predictions
+def getPrediction(model, test_prediction_df, X_pred):
+    """Make predictions only on the prediction window"""
+    test_prediction_df = test_prediction_df.copy()
+    predictions = model.predict(X_pred)
+    test_prediction_df['prediction'] = predictions
     
-    # Fixed plotting logic
-    ax = test_df[['Load']].plot(figsize=(15, 5))
-    test_df['prediction'].plot(ax=ax, style='.')
+    # Plot only the prediction window
+    ax = test_prediction_df[['Load']].plot(figsize=(15, 5))
+    test_prediction_df['prediction'].plot(ax=ax, style='.')
     plt.legend(['Truth Data', 'Predictions'])
-    ax.set_title('Raw Data and Prediction')
+    ax.set_title('Prediction Window: Actual vs Predicted')
     plt.show()
     
     return predictions
 
-def forecast_on_test(df, test, model, X_test):
-    test['prediction'] = model.predict(X_test)
-    df = df.merge(test[['prediction']], how='left', left_index=True, right_index=True)
-    ax = df[['Load']].plot(figsize=(15, 5))
-    df['prediction'].plot(ax=ax, style='.')
-    plt.legend(['Truth Data', 'Predictions'])
-    ax.set_title('Raw Dat and Prediction')
+def forecast_on_prediction_window(df, test_prediction, model, X_pred):
+    """Show forecast only on the prediction window within full dataset context"""
+    test_prediction = test_prediction.copy()
+    test_prediction['prediction'] = model.predict(X_pred)
+    
+    # Merge with full dataset to show context
+    df_with_pred = df.copy()
+    df_with_pred = df_with_pred.merge(test_prediction[['prediction']], 
+                                     how='left', left_index=True, right_index=True)
+    
+    # Plot full dataset with predictions highlighted
+    ax = df_with_pred[['Load']].plot(figsize=(15, 5))
+    df_with_pred['prediction'].plot(ax=ax, style='.', markersize=8, color='red')
+    plt.legend(['Historical Data', 'Predictions'])
+    ax.set_title('Full Dataset with Prediction Window Highlighted')
     plt.show()
 
 def evaluate_forecast(predictions, actuals):
@@ -101,17 +116,27 @@ def evaluate_forecast(predictions, actuals):
     return rmse, mae, mape
 
 def split(df, testLength_days):
-     # Create train/test split
+    """Split data ensuring lag features don't leak into training"""
     df['Date'] = pd.to_datetime(df['Date'])
-    train_end_date = df['Date'].max() - pd.Timedelta(days=testLength_days)
-
+    # Take 2x the testlength in days so that the prediction window can reference 
+    # the lag features in the past week, without referencing training data.
+    train_end_date = df['Date'].max() - pd.Timedelta(days=2*testLength_days)
+    
     train = df[df['Date'] < train_end_date].copy()
-    test = df[(df['Date'] >= train_end_date)].copy()
+    test_full = df[(df['Date'] >= train_end_date)].copy()
+    
+    # Split the test set into buffer and actual prediction window
+    prediction_start_date = df['Date'].max() - pd.Timedelta(days=testLength_days)
+    test_buffer = test_full[test_full['Date'] < prediction_start_date].copy()
+    test_prediction = test_full[test_full['Date'] >= prediction_start_date].copy()
     
     train = train.drop(['Date'], axis=1, errors='ignore')
-    print(f"Split sizes - Train: {len(train)}, Test: {len(test)}")
-
-    return train, test
+    test_buffer = test_buffer.drop(['Date'], axis=1, errors='ignore')
+    test_prediction = test_prediction.drop(['Date'], axis=1, errors='ignore')
+    
+    print(f"Split sizes - Train: {len(train)}, Buffer: {len(test_buffer)}, Prediction: {len(test_prediction)}")
+    
+    return train, test_full, test_buffer, test_prediction
 
 def plot_xgboost_forecast_vs_actual(test_df, predictions):
     plt.figure(figsize=(15, 5))
@@ -124,13 +149,14 @@ def plot_xgboost_forecast_vs_actual(test_df, predictions):
     plt.tight_layout()
     plt.show()
 
-def process_single_split(df, train, test):
-    exclude_cols = ['Load', 'Date', 'Time Stamp']
+def process_single_split(df, train, test_full, test_buffer, test_prediction):
+    """Process split with separate buffer and prediction windows"""
+    exclude_cols = ['Load', 'Date', 'Time Stamp', 'Load_1WeekAgo']
     feature_cols = [col for col in df.columns if col not in exclude_cols]
     print("Training model...")
-    model, X_test, y_test = train_model(train, feature_cols, test)
-
-    return model, X_test, y_test
+    model, X_pred, y_pred = train_model(train, feature_cols, test_full, test_prediction)
+    
+    return model, X_pred, y_pred
 
 def expanding_window(df):
     splits = [7, 14, 30, 90, 365, 1095, 1825] # 1W, 2W, 1M, 3M, 1Y, 3Y, 5Y splits
@@ -145,40 +171,43 @@ def expanding_window(df):
     averageRMSE = sum(squareErrors) / len(squareErrors)
     return averageRMSE
 
-def getSevenDayModel(df):
-    sevenDayTrain, sevenDayTest = split(df, 7) # retrieves the model that uses all but seven days
-    model, X_test, y_test = process_single_split(df, sevenDayTrain, sevenDayTest)
-
-    return model, sevenDayTrain, sevenDayTest, X_test, y_test
+def getNDayModel(df, NDays):
+    """Get model that predicts only on the final N days"""
+    train, test_full, test_buffer, test_prediction = split(df, NDays)
+    model, X_pred, y_pred = process_single_split(df, train, test_full, test_buffer, test_prediction)
+    
+    return model, train, test_full, test_buffer, test_prediction, X_pred, y_pred
 
 def main():
     path = '../data/processed/df.csv'
     df = pd.read_csv(path)
 
-    #averageRMSE = expanding_window(df)
-    #print(f"Average RMSE across models of expanding windows: {averageRMSE}")
+    predictionLength = 7
+    print(f"Getting final model trained on all but {predictionLength*2} days, predicting on final {predictionLength} days...")
+    
+    model, train, test_full, test_buffer, test_prediction, X_pred, y_pred = getNDayModel(df, predictionLength)
 
-    print("Getting final model trained on all but 7 days...")
-    model, sevenDayTrain, sevenDayTest, X_test, y_test = getSevenDayModel(df)
-
-    print("Pickling 7 day model...")
+    print(f"Saving {predictionLength} day model...")
     joblib.dump(model, 'xgboost_model.pkl')
 
-    print("Predicting...")
-    predictions = getPrediction(model, sevenDayTest, X_test)
+    print("Predicting on prediction window only...")
+    predictions = getPrediction(model, test_prediction, X_pred)
 
-    print("Displaying forecasted area on all data...")
-    forecast_on_test(df, sevenDayTest, model, X_test)
+    print("Evaluating forecast on prediction window...")
+    rmse, mae, mape = evaluate_forecast(predictions, y_pred)
+
+    print("Displaying forecast in context of full dataset...")
+    forecast_on_prediction_window(df, test_prediction, model, X_pred)
     
     feature_importance(model)
 
-    print("Plotting 1 Week forecast from 7 day model...")
-    plot_xgboost_forecast_vs_actual(sevenDayTest, predictions)
+    print(f"Plotting {predictionLength} day forecast...")
+    plot_xgboost_forecast_vs_actual(test_prediction, predictions)
 
 if __name__ == "__main__":
     main()
 
-
+#114
 """
 xgb_params = {
         'base_score': 0.5, 
