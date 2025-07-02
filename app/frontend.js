@@ -1,10 +1,16 @@
-const API_URL = 'http://localhost:5000/predict';
+const PREDICT_URL = 'http://localhost:5000/predict';
+const WEATHER_URL = 'http://localhost:5000/weather';
 let chart = null;
+let data = []; // Initialize data array to store rows
+let selectedDateText = null;
+
+dayjs.extend(dayjs_plugin_dayOfYear);
+dayjs.extend(dayjs_plugin_isoWeek);
 
 // Function to send the request
 async function getPrediction(data) {
   try {
-    const response = await fetch(API_URL, {
+    const response = await fetch(PREDICT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -19,9 +25,6 @@ async function getPrediction(data) {
     const result = await response.json();
     console.log('Prediction result:', result);
     
-    // Display results in the pre element
-    document.getElementById('result').textContent = JSON.stringify(result, null, 2);
-    
     // Create chart if predictions exist
     if (result.prediction && Array.isArray(result.prediction)) {
       createChart(result.prediction);
@@ -34,14 +37,24 @@ async function getPrediction(data) {
   }
 }
 
-function csvToJSON(csv) {
-  const lines = csv.trim().split('\n');
-   const headers = lines[0].split(',').map(h => h.trim());
+async function getWeatherForecast(){
+  try {
+    const response = await fetch(WEATHER_URL, {
+      method: 'GET',
+    });
 
-  return lines.slice(1).map(line => {
-    const values = line.split(',').map(v => v.trim());     // Strip whitespace from values
-    return Object.fromEntries(headers.map((h, i) => [h, parseFloat(values[i])]));
-  });
+    if (!response.ok) {
+      throw new Error(`Server responded with ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('Weather Forecast:', result);
+    
+    return result;
+
+  } catch (error) {
+    console.error('Error getting weather:', error);
+  }
 }
 
 function createChart(predictions) {
@@ -95,15 +108,102 @@ function createChart(predictions) {
   });
 }
 
-document.getElementById('csv-file').addEventListener('change', function (e) {
-  const file = e.target.files[0];
-  const reader = new FileReader();
+// Initialize Flatpickr
+flatpickr("#dateRangePicker", {
+    dateFormat: "Y-m-d",
+    onChange: function(selectedDates, dateStr, instance) {
+        selectedDateText = dateStr;
+        document.getElementById('startDateOutput').textContent = dateStr;
+    }
+});
 
-  reader.onload = function (event) {
-    const csv = event.target.result;
-    const data = csvToJSON(csv);
-    getPrediction(data);  // call your prediction API
-  };
+function parseDateIntoColumns(date){
+    const d = dayjs(date);
 
-  reader.readAsText(file);
+    return{
+      hour : d.hour(),
+      dayOfMonth : d.date(),
+      month : d.month() + 1,
+      year : d.year(),
+      dayOfWeek : d.day(),
+      dayOfYear : d.dayOfYear(),
+      weekOfYear : d.isoWeek()
+    }
+}
+
+function mergeRowData(dateText){
+  const startDate = dayjs(dateText);  // dateText = 'YYYY-MM-DD'
+  const hoursToLoop = 168; // 7 days * 24 hours
+
+  for(let i = 0; i < hoursToLoop; i++){
+    const currentDate = startDate.add(i, 'hour');
+    const dateColumns = parseDateIntoColumns(currentDate);
+    
+    // Create row object with date columns and placeholder values
+    const row = {
+      hour: dateColumns.hour,
+      dayofweek: dateColumns.dayOfWeek,
+      month: dateColumns.month,
+      year: dateColumns.year,
+      dayofyear: dateColumns.dayOfYear,
+      dayofmonth: dateColumns.dayOfMonth,
+      weekofyear: dateColumns.weekOfYear,
+      seasonNum: 2, // placeholder
+      Temperature: 10, // placeholder
+      averageTemp: 10 // placeholder
+    };
+    
+    data.push(row);
+    if(i == hoursToLoop){
+      endDate = currentDate;
+      updateEndDate(endDate);
+    }
+  }
+}
+
+function updateEndDate(endDate){
+  const endDateElement = document.getElementById('endDateOutput');
+  if(endDateElement && endDate) {
+    endDateElement.textContent = endDate.format('YYYY-MM-DD');
+  }
+}
+
+function showDateError(message) {
+  // Create or update error display
+  let errorDiv = document.getElementById('dateError');
+  if (!errorDiv) {
+    errorDiv = document.createElement('div');
+    errorDiv.id = 'dateError';
+    errorDiv.style.color = 'red';
+    errorDiv.style.marginTop = '10px';
+    document.getElementById('dateRangePicker').parentNode.appendChild(errorDiv);
+  }
+  errorDiv.textContent = message;
+  
+  // Clear error after 5 seconds
+  setTimeout(() => {
+    errorDiv.textContent = '';
+  }, 5000);
+}
+
+
+
+document.getElementById('submitDateButton').addEventListener('click', function (e) {
+  e.preventDefault();
+  
+  if (!selectedDateText) {
+    showDateError('Please select a date first');
+    return;
+  }
+  
+  // Clear existing data and add new rows
+  data = [];
+  mergeRowData(selectedDateText);
+  
+  console.log('Generated data:', data);
+  
+  // Call prediction with the generated data
+  getPrediction(data);
+
+  getWeatherForecast();
 });
