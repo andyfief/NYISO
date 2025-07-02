@@ -50,13 +50,6 @@ def getPrediction(model, test_prediction_df, X_pred):
     predictions = model.predict(X_pred)
     test_prediction_df['prediction'] = predictions
     
-    # Plot only the prediction window
-    ax = test_prediction_df[['Load']].plot(figsize=(15, 5))
-    test_prediction_df['prediction'].plot(ax=ax, style='.')
-    plt.legend(['Truth Data', 'Predictions'])
-    ax.set_title('Prediction Window: Actual vs Predicted')
-    plt.show()
-    
     return predictions
 
 def forecast_on_prediction_window(df, test_prediction, model, X_pred):
@@ -132,16 +125,17 @@ def split(df, testLength_days):
     
     train = train.drop(['Date'], axis=1, errors='ignore')
     test_buffer = test_buffer.drop(['Date'], axis=1, errors='ignore')
-    test_prediction = test_prediction.drop(['Date'], axis=1, errors='ignore')
+    #test_prediction = test_prediction.drop(['Date'], axis=1, errors='ignore') // Using this to find problematic dates in sliding window
     
     print(f"Split sizes - Train: {len(train)}, Buffer: {len(test_buffer)}, Prediction: {len(test_prediction)}")
     
     return train, test_full, test_buffer, test_prediction
 
-def plot_xgboost_forecast_vs_actual(test_df, predictions):
+def plot_xgboost_forecast_vs_actual(test_df, predictions, smoothed_predictions):
     plt.figure(figsize=(15, 5))
     plt.plot(test_df.index, test_df['Load'], label='Actual Load')
     plt.plot(test_df.index, predictions, label='Forecast', color='red')
+    plt.plot(test_df.index, smoothed_predictions, label='Smoothed Forecast', color='green')
     plt.title("XGBoost: Forecast vs Actual (Last Week)")
     plt.xlabel("Time")
     plt.ylabel("Load")
@@ -171,6 +165,46 @@ def expanding_window(df):
     averageRMSE = sum(squareErrors) / len(squareErrors)
     return averageRMSE
 
+def sliding_window(df):
+    RMSE_array = []
+    dates_over_threshold = []
+    min_required_rows = 24 * (7 + 7*2)  # example, depends on your train/test split size
+
+    for i in range(52):
+        if i > 0:
+            df_window = df[:-720*i]
+        else:
+            df_window = df.copy()
+        
+        if len(df_window) < min_required_rows:
+            print(f"Iteration {i} skipped: not enough data ({len(df_window)} rows).")
+            continue
+        
+        model, train, test_full, test_buffer, test_prediction, X_pred, y_pred = getNDayModel(df_window, 7)
+        predictions = getPrediction(model, test_prediction, X_pred)
+        
+        if len(predictions) == 0 or len(y_pred) == 0:
+            print(f"Iteration {i} skipped: no predictions or actuals.")
+            continue
+
+        rmse, mae, mape = evaluate_forecast(predictions, y_pred)
+
+        if rmse > 250:
+            test_prediction = test_prediction.copy()
+            test_prediction['prediction'] = predictions
+            test_prediction['error'] = np.abs(test_prediction['Load'] - test_prediction['prediction'])
+            test_prediction['Date'] = pd.to_datetime(test_prediction['Date'])
+
+            for date, group in test_prediction.groupby(test_prediction['Date'].dt.date):
+                if (group['error'] > 300).any():
+                    dates_over_threshold.append(date)
+
+        RMSE_array.append(rmse)
+
+    print(f"Mean RMSE: {sum(RMSE_array)/len(RMSE_array) if RMSE_array else float('nan')}")
+    print("Dates with large daily errors:", dates_over_threshold)
+    return dates_over_threshold
+
 def getNDayModel(df, NDays):
     """Get model that predicts only on the final N days"""
     train, test_full, test_buffer, test_prediction = split(df, NDays)
@@ -181,7 +215,11 @@ def getNDayModel(df, NDays):
 def main():
     path = '../data/processed/df.csv'
     df = pd.read_csv(path)
+    #Sliding window of 1 week forecasts:
+    sliding_window(df)
 
+    #Plotting the last week of the data against a forecast (use case)
+    """
     predictionLength = 7
     print(f"Getting final model trained on all but {predictionLength*2} days, predicting on final {predictionLength} days...")
     
@@ -202,12 +240,13 @@ def main():
     feature_importance(model)
 
     print(f"Plotting {predictionLength} day forecast...")
-    plot_xgboost_forecast_vs_actual(test_prediction, predictions)
+    smoothed_predictions = pd.Series(predictions).rolling(window=3, center=True).mean().bfill().ffill().to_numpy()
+    plot_xgboost_forecast_vs_actual(test_prediction, predictions, smoothed_predictions)
+    """
 
 if __name__ == "__main__":
     main()
 
-#114
 """
 xgb_params = {
         'base_score': 0.5, 

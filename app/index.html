@@ -4,14 +4,24 @@
   <meta charset="UTF-8">
   <title>Prediction App</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <!-- Flatpickr CSS and JS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <!-- Include dayjs for date parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/dayjs/dayjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs/plugin/dayOfYear.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs/plugin/isoWeek.js"></script>
 </head>
 <body>
   <h1>Test XGBoost Prediction</h1>
-  <input type="file" id="csv-file" />
   <div style="width: 800px; height: 400px; margin-top: 20px;">
     <canvas id="predictionChart"></canvas>
   </div>
-  <pre id="result"></pre>
+  <input type="text" id="dateRangePicker" />
+  <p>Start Date: <span id="startDateOutput"></span></p>
+  <p>End Date: <span id="endDateOutput"></span></p>
+  <button id="submitDateButton">Predict next 7 days</button>
+
   <script src="frontend.js"></script>
 </body>
 </html>
