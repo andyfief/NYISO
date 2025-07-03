@@ -5,6 +5,8 @@ import calendar
 import csv
 import numpy as np
 from typing import List, Tuple, Dict
+import gc
+import holidays
 
 def clean_null_load_values(df):
     """Removes null load values, drops unnecessary columns, renames columns"""
@@ -145,24 +147,42 @@ def create_time_features(df):
 
 def addLag(df):
     df = df.copy()
+    # 1 week ago (168 hours = 7 days * 24 hours)
+    df['Load_1WeekAgo'] = df['Load'].shift(168)
+    
+    return df
 
-    # Step 1: Create lag reference dates
-    df['DateMinus1Day'] = df['Date'] - pd.Timedelta(days=1)
-    df['Date1WeekAgo'] = df['Date'] - pd.Timedelta(days=7)
+def addHolidays(df):
+    """Add compact holiday features relevant to high-error dates"""
+    df = df.copy()
+    df['Date'] = pd.to_datetime(df['Date'])
+    us_holidays = holidays.US(years=range(df['Date'].min().year, df['Date'].max().year + 1))
 
-    # Step 2: Make a simple lookup table for Date -> Load
-    load_lookup = df[['Date', 'Load']].copy()
+    # Relevant single-day holidays
+    relevant_federal_tags = {
+        "memorialDay": "Memorial Day",
+        "independenceDay": "Independence Day",
+        "laborDay": "Labor Day",
+    }
 
-    # Step 3: Merge Load_1DayAgo
-    df = df.merge(load_lookup.rename(columns={'Date': 'DateMinus1Day', 'Load': 'Load_1DayAgo'}),
-                  on='DateMinus1Day', how='left')
+    for colname, holiday_name in relevant_federal_tags.items():
+        df[colname] = df['Date'].apply(lambda x: 1 if us_holidays.get(x.date()) == holiday_name else 0)
 
-    # Step 4: Merge Load_1WeekAgo
-    df = df.merge(load_lookup.rename(columns={'Date': 'Date1WeekAgo', 'Load': 'Load_1WeekAgo'}),
-                  on='Date1WeekAgo', how='left')
+    # Christmas Week: Dec 22–28
+    df['christmasWeek'] = df['Date'].apply(lambda x: 1 if x.month == 12 and 22 <= x.day <= 28 else 0)
 
-    # Step 5: Drop the lag keys if desired
-    df.drop(columns=['DateMinus1Day', 'Date1WeekAgo'], inplace=True)
+    # Thanksgiving Week: Thanksgiving Thursday through Cyber Monday (5 days)
+    current_year = datetime.now().year
+    thanksgiving_week_dates = set()
+    for year in range(2005, current_year + 1):
+        thanksgiving = pd.Timestamp(f"{year}-11-01")
+        while thanksgiving.weekday() != 3:  # Find first Thursday
+            thanksgiving += pd.Timedelta(days=1)
+        thanksgiving += pd.Timedelta(weeks=3)  # Fourth Thursday of November
+        for offset in range(5):  # Thursday to Monday
+            thanksgiving_week_dates.add((thanksgiving + pd.Timedelta(days=offset)).date())
+
+    df['thanksgivingWeek'] = df['Date'].dt.date.isin(thanksgiving_week_dates).astype(int)
 
     return df
 
@@ -172,10 +192,11 @@ def save_to_csv(df, filename):
     return df
 
 def main():
-    csv_path = "../data/raw/nyc_load_aggregated_raw.csv"
-    weather_file = "../data/raw/weatherDF.csv"
+    csv_path = "../data/raw/nyc_load_aggregated_raw2.csv"
+    weather_file = "../data/raw/weatherDF2.csv"
 
     df = pd.read_csv(csv_path)
+
     print("Cleaning Null Values...")
     df = clean_null_load_values(df)
     print("Converting to UTC...")
@@ -190,6 +211,8 @@ def main():
     df = twelveHourTemp(df)  # Modified to handle index properly
     print("Adding lag...")
     df = addLag(df)
+    print("Adding Holidays...")
+    #df = addHolidays(df)
 
     save_to_csv(df, '../data/processed/df.csv') # For comparing to actuals in XG. I could put everything below this in XG too
     

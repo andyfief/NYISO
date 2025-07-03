@@ -4,7 +4,7 @@ from meteostat import Point, Daily, Hourly
 
 # Set time period (reduced to more manageable range)
 start = datetime(2005, 1, 31)
-end = datetime(2025, 4, 26)
+end = datetime(2005, 2, 28)
 
 # Central Park coordinates (note: longitude should be negative for NYC)
 CentralPark = Point(40.7128, -74.0060)  # Fixed longitude sign

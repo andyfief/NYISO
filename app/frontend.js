@@ -2,10 +2,12 @@ const PREDICT_URL = 'http://localhost:5000/predict';
 const WEATHER_URL = 'http://localhost:5000/weather';
 let chart = null;
 let data = []; // Initialize data array to store rows
+let forecastDict = {};
 let selectedDateText = null;
 
 dayjs.extend(dayjs_plugin_dayOfYear);
 dayjs.extend(dayjs_plugin_isoWeek);
+dayjs.extend(dayjs_plugin_utc);
 
 // Function to send the request
 async function getPrediction(data) {
@@ -37,11 +39,9 @@ async function getPrediction(data) {
   }
 }
 
-async function getWeatherForecast(){
+async function getWeatherForecast() {
   try {
-    const response = await fetch(WEATHER_URL, {
-      method: 'GET',
-    });
+    const response = await fetch(WEATHER_URL, { method: 'GET' });
 
     if (!response.ok) {
       throw new Error(`Server responded with ${response.status}`);
@@ -49,11 +49,21 @@ async function getWeatherForecast(){
 
     const result = await response.json();
     console.log('Weather Forecast:', result);
-    
-    return result;
+
+    forecastDict = {};
+
+    result.hourly_forecast.forEach(entry => {
+      const localTimestamp = entry.timestamp;
+      const utcTimestamp = dayjs(localTimestamp).utc().format(); // ISO UTC string
+      forecastDict[utcTimestamp] = entry.temperature;
+    });
+
+    console.log("Forecast in UTC:", forecastDict);
+    return forecastDict;
 
   } catch (error) {
     console.error('Error getting weather:', error);
+    return {};
   }
 }
 
@@ -66,7 +76,10 @@ function createChart(predictions) {
   }
 
   // Create labels (just indices 1 to 169)
-  const labels = predictions.map((_, index) => index + 1);
+  const startDate = dayjs(selectedDateText);
+  const labels = predictions.map((_, index) => {
+    return startDate.add(index, 'hour').format('MM/DD HH:mm');
+  });
 
   chart = new Chart(ctx, {
     type: 'line',
@@ -88,7 +101,15 @@ function createChart(predictions) {
         x: {
           title: {
             display: true,
-            text: 'Data Point'
+            text: 'Date & Time'
+          },
+          ticks: {
+            // Show every 12th label (12 hours)
+            callback: function(value, index, values) {
+              return index % 2 === 0 ? this.getLabelForValue(value) : '';
+            },
+            maxRotation: 45,
+            minRotation: 45
           }
         },
         y: {
@@ -108,15 +129,6 @@ function createChart(predictions) {
   });
 }
 
-// Initialize Flatpickr
-flatpickr("#dateRangePicker", {
-    dateFormat: "Y-m-d",
-    onChange: function(selectedDates, dateStr, instance) {
-        selectedDateText = dateStr;
-        document.getElementById('startDateOutput').textContent = dateStr;
-    }
-});
-
 function parseDateIntoColumns(date){
     const d = dayjs(date);
 
@@ -132,13 +144,34 @@ function parseDateIntoColumns(date){
 }
 
 function mergeRowData(dateText){
-  const startDate = dayjs(dateText);  // dateText = 'YYYY-MM-DD'
-  const hoursToLoop = 168; // 7 days * 24 hours
+  selectedDateText = dateText;
+  const startDate = dayjs.utc(dateText);  // dateText = 'YYYY-MM-DD'
+  console.log(startDate.format())
+  const hoursToLoop = 156; // 7 days * 24 hours - 12 hours from the weather API missing these
 
+  const dailyTemps = {};
+
+  data = [];
   for(let i = 0; i < hoursToLoop; i++){
     const currentDate = startDate.add(i, 'hour');
+    const timestampKey = currentDate.format();
+
+    const tempStr = forecastDict[timestampKey];
+    const temp = tempStr != null ? parseFloat(tempStr) : null;
+    const finalTemp = (temp != null && !isNaN(temp)) ? temp : 0;
+
     const dateColumns = parseDateIntoColumns(currentDate);
-    
+
+    const dateKey = currentDate.format('YYYY-MM-DD');
+    const hour = currentDate.hour();
+
+    if (hour >= 9 && hour <= 21) {
+      if (!dailyTemps[dateKey]) {
+        dailyTemps[dateKey] = [];
+      }
+      dailyTemps[dateKey].push(finalTemp);
+    }
+
     // Create row object with date columns and placeholder values
     const row = {
       hour: dateColumns.hour,
@@ -149,22 +182,57 @@ function mergeRowData(dateText){
       dayofmonth: dateColumns.dayOfMonth,
       weekofyear: dateColumns.weekOfYear,
       seasonNum: 2, // placeholder
-      Temperature: 10, // placeholder
-      averageTemp: 10 // placeholder
+      Temperature: finalTemp,
+      averageTemp: null // placeholder
     };
-    
     data.push(row);
-    if(i == hoursToLoop){
+
+    if(i == hoursToLoop - 1){
       endDate = currentDate;
       updateEndDate(endDate);
     }
+
+    data.forEach((row, index) => {
+      if (index < 12) {
+        row.averageTemp = row.Temperature;
+      } else {
+        const dateStr = `${row.year}-${String(row.month).padStart(2, '0')}-${String(row.dayofmonth).padStart(2, '0')}`;
+        const temps = dailyTemps[dateStr];
+
+        if (temps && temps.length > 0) {
+          const avg = temps.reduce((a, b) => a + b, 0) / temps.length;
+          row.averageTemp = parseFloat(avg.toFixed(2));
+        } else {
+          row.averageTemp = row.Temperature; // fallback
+        }
+      }
+    });
   }
 }
 
+function setTodaysDate() {
+  // Get all keys (timestamps) from the dict and sort them to find earliest
+  const timestamps = Object.keys(forecastDict);
+  timestamps.sort(); // ISO timestamps sort correctly as strings
+
+  // Pick first timestamp or fallback
+  const firstTimestamp = timestamps[0];
+
+  const startDate = firstTimestamp
+    ? dayjs.utc(firstTimestamp)
+    : dayjs.utc(selectedDateText || dayjs().format('YYYY-MM-DD'));
+
+  document.getElementById('startDateOutput').textContent = startDate.format('YYYY-MM-DD HH:mm');
+  return startDate;
+}
+
 function updateEndDate(endDate){
-  const endDateElement = document.getElementById('endDateOutput');
-  if(endDateElement && endDate) {
-    endDateElement.textContent = endDate.format('YYYY-MM-DD');
+  if(endDate) {
+    endDate = endDate.format('YYYY-MM-DD');
+    document.getElementById('endDateOutput').textContent = endDate;
+  }
+  else{
+    console.log("error parsing end date")
   }
 }
 
@@ -186,24 +254,20 @@ function showDateError(message) {
   }, 5000);
 }
 
+document.addEventListener('DOMContentLoaded', async function () {
+  // Set today's date on page load
 
+  forecastDict = await getWeatherForecast();
+  const today = setTodaysDate();
 
-document.getElementById('submitDateButton').addEventListener('click', function (e) {
-  e.preventDefault();
-  
-  if (!selectedDateText) {
-    showDateError('Please select a date first');
-    return;
-  }
-  
-  // Clear existing data and add new rows
-  data = [];
-  mergeRowData(selectedDateText);
-  
-  console.log('Generated data:', data);
-  
-  // Call prediction with the generated data
-  getPrediction(data);
+  document.getElementById('submitDateButton').addEventListener('click', function (e) {
+    e.preventDefault();
 
-  getWeatherForecast();
+    data = [];
+    mergeRowData(today);
+
+    console.log('Generated data:', data);
+
+    getPrediction(data);
+  });
 });

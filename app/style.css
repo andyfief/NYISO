@@ -1,0 +1,72 @@
+/* style.css */
+
+body {
+  background-color: #121212;
+  color: #f0f0f0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 20px;
+}
+
+h1 {
+  text-align: center;
+  color: #00c9a7;
+  margin-bottom: 30px;
+}
+
+canvas {
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+input[type="text"] {
+  background-color: #1e1e1e;
+  color: #f0f0f0;
+  border: 1px solid #444;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-right: 10px;
+}
+
+button {
+  background-color: #00c9a7;
+  color: #121212;
+  border: none;
+  padding: 10px 16px;
+  font-size: 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background-color: #00a28a;
+}
+
+#dateError {
+  color: #ff6b6b;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+#startDateOutput,
+#endDateOutput {
+  font-weight: bold;
+  color: #00e5c8;
+}
+
+p {
+  margin-top: 12px;
+  font-size: 16px;
+}
+
+.container {
+  max-width: 900px;
+  margin: auto;
+}
+
+#predictionChart {
+  max-width: 100%;
+}

@@ -24,7 +24,7 @@ def checkMissing(df):
 
 
 def main():
-    csv_path = "weatherDF.csv"
+    csv_path = "../data/raw/updated_weatherDF.csv"
     print("Loading weather csv file...")
     df = pd.read_csv(csv_path)
 

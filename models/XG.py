@@ -215,11 +215,11 @@ def getNDayModel(df, NDays):
 def main():
     path = '../data/processed/df.csv'
     df = pd.read_csv(path)
+    print(df.dtypes)
     #Sliding window of 1 week forecasts:
-    sliding_window(df)
+    #sliding_window(df)
 
     #Plotting the last week of the data against a forecast (use case)
-    """
     predictionLength = 7
     print(f"Getting final model trained on all but {predictionLength*2} days, predicting on final {predictionLength} days...")
     
@@ -242,7 +242,7 @@ def main():
     print(f"Plotting {predictionLength} day forecast...")
     smoothed_predictions = pd.Series(predictions).rolling(window=3, center=True).mean().bfill().ffill().to_numpy()
     plot_xgboost_forecast_vs_actual(test_prediction, predictions, smoothed_predictions)
-    """
+    
 
 if __name__ == "__main__":
     main()
