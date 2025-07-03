@@ -6,7 +6,7 @@ import os
 from datetime import datetime, timedelta
 
 # Replace this with your CSV URL from NYISO
-url = 'https://mis.nyiso.com/public/csv/palIntegrated/20250401palIntegrated_csv.zip'
+url = 'https://mis.nyiso.com/public/csv/palIntegrated/20250629palIntegrated.csv.zip'
 
 def process_nyiso_csv(url, zone='N.Y.C.', output_file='nyc_load_aggregated.csv'):
     # Step 1: Download ZIP file from NYISO

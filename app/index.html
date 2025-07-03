@@ -1,27 +1,33 @@
-<!DOCTYPE html>
-<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Prediction App</title>
+  <title>Forecasting NYISO</title>
+  <link rel="stylesheet" href="style.css">
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-  <!-- Flatpickr CSS and JS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <!-- Include dayjs for date parsing -->
   <script src="https://cdn.jsdelivr.net/npm/dayjs/dayjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dayjs/plugin/dayOfYear.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dayjs/plugin/isoWeek.js"></script>
+  <script src="https://unpkg.com/dayjs@1.11.10/plugin/utc.js"></script>
+  <script src="https://unpkg.com/dayjs@1.11.10/plugin/timezone.js"></script>
 </head>
 <body>
-  <h1>Test XGBoost Prediction</h1>
-  <div style="width: 800px; height: 400px; margin-top: 20px;">
-    <canvas id="predictionChart"></canvas>
+  <div class="container">
+    <h1>Forecast New York City's Power Grid Load for the Next 7 Days using XGBoost!</h1>
+    
+    <div style="width: 100%; height: 400px; margin-top: 20px;">
+      <canvas id="predictionChart"></canvas>
+    </div>
+
+    <div style="margin-top: 20px;">
+      <button id="submitDateButton">Predict next 7 days</button>
+      <div id="dateError"></div>
+    </div>
+
+    <p>Start Date: <span id="startDateOutput"></span></p>
+    <p>End Date: <span id="endDateOutput"></span></p>
   </div>
-  <input type="text" id="dateRangePicker" />
-  <p>Start Date: <span id="startDateOutput"></span></p>
-  <p>End Date: <span id="endDateOutput"></span></p>
-  <button id="submitDateButton">Predict next 7 days</button>
 
   <script src="frontend.js"></script>
 </body>
-</html>
