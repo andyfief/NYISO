@@ -67,6 +67,39 @@ p {
   margin: auto;
 }
 
-#predictionChart {
-  max-width: 100%;
+.chart-container {
+  position: relative;
+  width: 100%;  /* Move the sizing to the container */
+  height: 420px;  /* 95% of 400px */
+  margin-bottom: 30px;
+}
+
+#weatherOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(20, 20, 20); /* dark semi-transparent overlay */
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5em;
+  z-index: 10;
+}
+
+#predictionOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(20, 20, 20, 0.1); /* dark semi-transparent overlay */
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5em;
+  z-index: 10;
 }
