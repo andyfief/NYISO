@@ -1,6 +1,7 @@
 const PREDICT_URL = 'http://localhost:5000/predict';
 const WEATHER_URL = 'http://localhost:5000/weather';
 let chart = null;
+let weatherChart = null;
 let data = []; // Initialize data array to store rows
 let forecastDict = {};
 let selectedDateText = null;
@@ -67,6 +68,100 @@ async function getWeatherForecast() {
   }
 }
 
+function getChartOptions(title) {
+  return {
+    responsive: false,
+    maintainAspectRatio: false,
+    layout: {
+      padding: 10
+    },
+    interaction: {
+      intersect: false,
+      mode: 'index'
+    },
+    scales: {
+      x: {
+        title: {
+          display: true,
+          text: 'Date & Time'
+        },
+        ticks: {
+          callback: function(value, index, values) {
+            return index % 2 === 0 ? this.getLabelForValue(value) : '';
+          },
+          maxRotation: 45,
+          minRotation: 45
+        }
+      },
+      y: {
+        title: {
+          display: true,
+          text: title.includes('Temperature') ? 'Temperature (°C)' : 'Prediction Value'
+        }
+      }
+    },
+    plugins: {
+      title: {
+        display: true,
+        text: title
+      }
+    }
+  };
+}
+
+function initializeEmptyWeatherChart() {
+  const ctx = document.getElementById("weatherChart").getContext("2d");
+  
+  weatherChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['Loading...'], // Placeholder label
+      datasets: [{
+        label: 'Hourly Temperature (°C)',
+        data: [0], // Placeholder data point
+        borderColor: 'rgb(54, 162, 235)',
+        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: getChartOptions('7-Day Hourly Weather Forecast (NWS)')
+  });
+}
+
+async function renderWeatherChart() {
+  const labels = Object.keys(forecastDict);
+  const temperatures = Object.values(forecastDict);
+
+  const ctx = document.getElementById("weatherChart").getContext("2d");
+
+  // Destroy existing chart if it exists
+  if (weatherChart) {
+    weatherChart.destroy();
+  }
+
+  // Force canvas to maintain container size
+  const container = ctx.canvas.parentElement;
+  ctx.canvas.width = container.clientWidth;
+  ctx.canvas.height = container.clientHeight;
+  
+  weatherChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Hourly Temperature (°C)',
+        data: temperatures,
+        borderColor: 'rgb(54, 162, 235)',
+        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: getChartOptions('7-Day Hourly Weather Forecast (NWS)')
+  });
+}
+
 function createChart(predictions) {
   const ctx = document.getElementById('predictionChart').getContext('2d');
   
@@ -75,7 +170,11 @@ function createChart(predictions) {
     chart.destroy();
   }
 
-  // Create labels (just indices 1 to 169)
+  // Force canvas to maintain container size
+  const container = ctx.canvas.parentElement;
+  ctx.canvas.width = container.clientWidth;
+  ctx.canvas.height = container.clientHeight;
+
   const startDate = dayjs(selectedDateText);
   const labels = predictions.map((_, index) => {
     return startDate.add(index, 'hour').format('MM/DD HH:mm');
@@ -94,38 +193,7 @@ function createChart(predictions) {
         fill: false
       }]
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        x: {
-          title: {
-            display: true,
-            text: 'Date & Time'
-          },
-          ticks: {
-            // Show every 12th label (12 hours)
-            callback: function(value, index, values) {
-              return index % 2 === 0 ? this.getLabelForValue(value) : '';
-            },
-            maxRotation: 45,
-            minRotation: 45
-          }
-        },
-        y: {
-          title: {
-            display: true,
-            text: 'Prediction Value'
-          }
-        }
-      },
-      plugins: {
-        title: {
-          display: true,
-          text: `Predictions (${predictions.length} values)`
-        }
-      }
-    }
+    options: getChartOptions(`Predictions (${predictions.length} values)`)
   });
 }
 
@@ -254,20 +322,36 @@ function showDateError(message) {
   }, 5000);
 }
 
-document.addEventListener('DOMContentLoaded', async function () {
-  // Set today's date on page load
+document.getElementById('forecastButton').addEventListener('click', function (e) {
+  const overlay = document.getElementById('weatherOverlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+  renderWeatherChart(); // This overlay is a workaround for a quirk of chartJS resizing to the length of the graph that I can't figure out.
+  // we render the chart once at  DOMContentLoaded, and cover it with this overlay. Then when the button is clicked, remove the overlay
+  // and re-render so that the animation is visible.
+});
 
+
+
+document.addEventListener('DOMContentLoaded', async function () {
+  console.log("Preloading weather data...");
   forecastDict = await getWeatherForecast();
+  renderWeatherChart();
   const today = setTodaysDate();
 
   document.getElementById('submitDateButton').addEventListener('click', function (e) {
     e.preventDefault();
-
+    if(Object.keys(forecastDict).length === 0){
+      console.log("No weather data");
+      return
+    }
     data = [];
     mergeRowData(today);
 
     console.log('Generated data:', data);
 
     getPrediction(data);
+    
   });
 });
