@@ -15,22 +15,29 @@
 <body>
   <div class="container">
     <h1>Forecast New York City's Power Grid Load for the Next 7 Days using XGBoost!</h1>
-    <div class="chart-container">
-      <canvas id="weatherChart"></canvas>
-      <div id="weatherOverlay">Load weather forecast...</div>
+        <div class="chart-container">
+          <canvas id="weatherChart"></canvas>
+          <div id="weatherOverlay">
+            <button id="forecastButton">Get Weather Forecast</button>
+          </div>
+        </div>
+        <div id="betweenTwoCharts">
+          
+          <div id="dates">
+            <p>Start Date: <span id="startDateOutput"></span></p>
+            <p>End Date: <span id="endDateOutput"></span></p>
+          </div>
+        </div>
+        <div class="chart-container">
+          <div id="predictionOverlay">
+            <button id="submitDateButton">Predict next 7 days</button>
+          </div>
+          <canvas id="predictionChart"></canvas>
+        </div>
     </div>
-    <button id="forecastButton">Get Weather Forecast</button>
-    <div class="chart-container">
-      <div id="predictionOverlay">Load prediction...</div>
-      <canvas id="predictionChart"></canvas>
-    </div>
-    <div>
-      <button id="submitDateButton">Predict next 7 days</button>
+      
       <div id="dateError"></div>
     </div>
-
-    <p>Start Date: <span id="startDateOutput"></span></p>
-    <p>End Date: <span id="endDateOutput"></span></p>
   </div>
 
   <script src="frontend.js"></script>
