@@ -1,38 +1,37 @@
 /* style.css */
 
 body {
-  background-color: #121212;
-  color: #f0f0f0;
+  background-color: #f9f6f1;
+  color: #3a3a3a;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   margin: 0;
   padding: 20px;
 }
 
 h1 {
-  text-align: center;
-  color: #00c9a7;
+  color: #a46336;
   margin-bottom: 30px;
 }
 
 canvas {
-  background-color: #1e1e1e;
-  border: 1px solid #333;
+  background-color: #fff7ec;
+  border: 1px solid #d6c2a3;
   border-radius: 8px;
   padding: 10px;
 }
 
 input[type="text"] {
-  background-color: #1e1e1e;
-  color: #f0f0f0;
-  border: 1px solid #444;
+  background-color: #fff7ec;
+  color: #3a3a3a;
+  border: 1px solid #d6c2a3;
   padding: 8px 12px;
   border-radius: 6px;
   margin-right: 10px;
 }
 
 button {
-  background-color: #00c9a7;
-  color: #121212;
+  background-color: #a46336;
+  color: #f9f6f1;
   border: none;
   padding: 10px 16px;
   font-size: 16px;
@@ -42,11 +41,11 @@ button {
 }
 
 button:hover {
-  background-color: #00a28a;
+  background-color: #8b5129;
 }
 
 #dateError {
-  color: #ff6b6b;
+  color: #d9534f;
   font-size: 14px;
   margin-top: 10px;
 }
@@ -54,7 +53,7 @@ button:hover {
 #startDateOutput,
 #endDateOutput {
   font-weight: bold;
-  color: #00e5c8;
+  color: #c17e4f;
 }
 
 p {
@@ -63,15 +62,39 @@ p {
 }
 
 .container {
-  max-width: 900px;
-  margin: auto;
+  max-width: 1600px;
+  width: 100vw;
+  margin: 0;
+  padding: 0 20px;
+  display: flex;
+  gap: 40px;
+  align-items: flex-start;
+}
+
+.left-side {
+  flex: 1;
+  min-width: 300px;
+}
+
+.right-side {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0; /* Prevents flex items from growing beyond container */
+  overflow: hidden; /* Prevents charts from expanding beyond bounds */
+}
+
+.description {
+  margin-top: 20px;
+  font-size: 16px;
+  line-height: 1.5;
 }
 
 .chart-container {
   position: relative;
-  width: 100%;  /* Move the sizing to the container */
-  height: 420px;  /* 95% of 400px */
-  margin-bottom: 30px;
+  width: 100%;
+  height: 400px; /* Made shorter vertically */
 }
 
 #weatherOverlay {
@@ -80,8 +103,8 @@ p {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(20, 20, 20); /* dark semi-transparent overlay */
-  color: white;
+  background-color: rgba(255, 247, 236);
+  color: #3a3a3a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -95,8 +118,8 @@ p {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(20, 20, 20); /* dark semi-transparent overlay */
-  color: white;
+  background-color: rgba(255, 247, 236);
+  color: #3a3a3a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -106,7 +129,7 @@ p {
 
 #betweenTwoCharts {
   display: flex;
-  align-items: center;            /* vertical alignment */
+  align-items: center;
   gap: 10px;
 }
 

@@ -196,9 +196,14 @@ def main():
     weather_file = "../data/raw/weatherDF2.csv"
 
     df = pd.read_csv(csv_path)
+    
 
     print("Cleaning Null Values...")
     df = clean_null_load_values(df)
+    
+    print("Average Load across all data:")
+    print(df['Load'].mean())
+
     print("Converting to UTC...")
     df = convert_to_utc(df)  # This needs Time Stamp as a column
     print("Reindexing, Interpolating...")
@@ -214,6 +219,7 @@ def main():
     print("Adding Holidays...")
     #df = addHolidays(df)
 
+    
     save_to_csv(df, '../data/processed/df.csv') # For comparing to actuals in XG. I could put everything below this in XG too
     
 

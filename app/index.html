@@ -14,27 +14,39 @@
 </head>
 <body>
   <div class="container">
-    <h1>Forecast New York City's Power Grid Load for the Next 7 Days using XGBoost!</h1>
-        <div class="chart-container">
-          <canvas id="weatherChart"></canvas>
-          <div id="weatherOverlay">
-            <button id="forecastButton">Get Weather Forecast</button>
-          </div>
-        </div>
-        <div id="betweenTwoCharts">
-          
-          <div id="dates">
-            <p>Start Date: <span id="startDateOutput"></span></p>
-            <p>End Date: <span id="endDateOutput"></span></p>
-          </div>
-        </div>
-        <div class="chart-container">
-          <div id="predictionOverlay">
-            <button id="submitDateButton">Predict next 7 days</button>
-          </div>
-          <canvas id="predictionChart"></canvas>
-        </div>
+    <div class="left-side">
+      <h1>Forecast New York City's Electricity Demand for the Next 7 Days using XGBoost!</h1>
+      <div class="description">
+        <p>This application uses machine learning to predict NYC's electrical grid load based on live weather forecasts and historical patterns.</p>
+        <p>20 years of hourly data was downloaded from NYISO (New York Independent System Operator) to train and validate the model.</p>
+        <p>Sliding-window cross validation was used to compute an accuracy of 97.1%, using the Mean Absolute Percentage Error Error across 52 models: 1 per 
+          week for a year.
+        </p>
+        <p>Predictions are heavily reliant on weather data: The 7 day temperature forecast is imported in real-time from the National Weather Service API.</p>
+      </div>
     </div>
+    
+    <div class="right-side">
+      <div class="chart-container">
+        <canvas id="weatherChart"></canvas>
+        <div id="weatherOverlay">
+          <button id="forecastButton">Get Weather Forecast</button>
+        </div>
+      </div>
+      
+      <div id="betweenTwoCharts">
+        <div id="dates">
+          <p>Start Date: <span id="startDateOutput"></span></p>
+          <p>End Date: <span id="endDateOutput"></span></p>
+        </div>
+      </div>
+      
+      <div class="chart-container">
+        <div id="predictionOverlay">
+          <button id="submitDateButton">Predict next 7 days</button>
+        </div>
+        <canvas id="predictionChart"></canvas>
+      </div>
       
       <div id="dateError"></div>
     </div>

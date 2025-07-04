@@ -87,7 +87,7 @@ function getChartOptions(title) {
         },
         ticks: {
           callback: function(value, index, values) {
-            return index % 2 === 0 ? this.getLabelForValue(value) : '';
+            return index % 12 === 0 ? this.getLabelForValue(value) : '';
           },
           maxRotation: 45,
           minRotation: 45
@@ -107,26 +107,6 @@ function getChartOptions(title) {
       }
     }
   };
-}
-
-function initializeEmptyWeatherChart() {
-  const ctx = document.getElementById("weatherChart").getContext("2d");
-  
-  weatherChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: ['Loading...'], // Placeholder label
-      datasets: [{
-        label: 'Hourly Temperature (°C)',
-        data: [0], // Placeholder data point
-        borderColor: 'rgb(54, 162, 235)',
-        backgroundColor: 'rgba(54, 162, 235, 0.2)',
-        fill: true,
-        tension: 0.3
-      }]
-    },
-    options: getChartOptions('7-Day Hourly Weather Forecast (NWS)')
-  });
 }
 
 async function renderWeatherChart() {
@@ -152,8 +132,8 @@ async function renderWeatherChart() {
       datasets: [{
         label: 'Hourly Temperature (°C)',
         data: temperatures,
-        borderColor: 'rgb(54, 162, 235)',
-        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+        borderColor: '#9EB2FA',
+        backgroundColor: 'rgb(255, 255, 255)',
         fill: true,
         tension: 0.3
       }]
@@ -187,13 +167,13 @@ function createChart(predictions) {
       datasets: [{
         label: 'Predictions',
         data: predictions,
-        borderColor: 'rgb(75, 192, 192)',
-        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        borderColor: '#DEBB87',
+        backgroundColor: '#faefdf',
         borderWidth: 2,
-        fill: false
+        fill: true
       }]
     },
-    options: getChartOptions(`Predictions (${predictions.length} values)`)
+    options: getChartOptions(`7-Day NYC Power Grid Load Predictions (MWh)`)
   });
 }
 
