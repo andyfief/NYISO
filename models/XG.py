@@ -199,7 +199,7 @@ def sliding_window(df):
                 if (group['error'] > 300).any():
                     dates_over_threshold.append(date)
 
-        RMSE_array.append(mape)
+        RMSE_array.append(rmse)
 
     print(f"Mean RMSE: {sum(RMSE_array)/len(RMSE_array) if RMSE_array else float('nan')}")
     print("Dates with large daily errors:", dates_over_threshold)
