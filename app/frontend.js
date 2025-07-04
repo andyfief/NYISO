@@ -296,7 +296,7 @@ function setTodaysDate() {
 
 function updateEndDate(endDate){
   if(endDate) {
-    endDate = endDate.format('YYYY-MM-DD');
+    endDate = endDate.format('YYYY-MM-DD HH:mm');
     document.getElementById('endDateOutput').textContent = endDate;
   }
   else{
@@ -332,17 +332,13 @@ document.getElementById('forecastButton').addEventListener('click', function (e)
   // and re-render so that the animation is visible.
 });
 
-
-
 document.addEventListener('DOMContentLoaded', async function () {
   console.log("Preloading weather data...");
   forecastDict = await getWeatherForecast();
   renderWeatherChart();
   const today = setTodaysDate();
 
-  document.getElementById('submitDateButton').addEventListener('click', function (e) {
-    e.preventDefault();
-    if(Object.keys(forecastDict).length === 0){
+  if(Object.keys(forecastDict).length === 0){
       console.log("No weather data");
       return
     }
@@ -352,6 +348,19 @@ document.addEventListener('DOMContentLoaded', async function () {
     console.log('Generated data:', data);
 
     getPrediction(data);
-    
+
+  document.getElementById('submitDateButton').addEventListener('click', function (e) {
+  const overlay = document.getElementById('predictionOverlay');
+  const weatherOverlay = document.getElementById('weatherOverlay');
+
+  // Run prediction (which triggers chart creation & animation)
+  getPrediction(data).then(() => {
+    // One frame after the chart starts animating, remove the overlay
+    requestAnimationFrame(() => {
+      if (overlay && weatherOverlay && window.getComputedStyle(weatherOverlay).display === 'none') {
+        overlay.style.display = 'none';
+      }
+    });
   });
+});
 });
