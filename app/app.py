@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import joblib
 import pandas as pd
 import xgboost as xgb
@@ -12,7 +12,12 @@ from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
-model = joblib.load("../models/xgboost_model.pkl")
+
+@app.route('/')
+def home():
+    return render_template('index.html')
+
+model = joblib.load("./xgboost_model.pkl")
 
 load_dotenv()
 # NWS API doesn't require API key
@@ -182,7 +187,7 @@ def weather_api():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000)
 
 """
 currently accepting as input,
