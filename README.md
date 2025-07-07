@@ -12,9 +12,9 @@ Sliding-window cross validation was used to compute an accuracy of 97.1%, using 
 5. **Real-time Forecasting**: NWS API provides current weather → model predicts next 7 days
 6. **Web Interface**: Clean charts show both weather forecast and power predictions
 
-## Quick Start
+## App Setup
 
-### Local Setup
+### Local
 ```bash
 # Clone and install dependencies
 pip install flask pandas xgboost scikit-learn joblib matplotlib numpy python-dotenv flask-cors requests dayjs
